@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word of Doubt: The Secret Word Party Game</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <style>
+        /* Custom CSS for a sleek, dark aesthetic */
+        :root {
+            --color-civilian: #10b981; /* Emerald Green */
+            --color-undercover: #f59e0b; /* Amber Orange */
+            --color-mrwhite: #3b82f6; /* Bright Blue */
+            --color-background: #111827; /* Darkest Gray */
+            --color-card-bg: #1f2937; /* Lighter Dark Gray */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--color-background);
+            color: #f3f4f6;
+            min-height: 100vh;
+        }
+
+        .role-card {
+            border: 5px solid;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+        }
+
+        .role-civilian { border-color: var(--color-civilian); background-color: rgba(16, 185, 129, 0.2); }
+        .role-undercover { border-color: var(--color-undercover); background-color: rgba(245, 158, 11, 0.2); }
+        .role-mrwhite { border-color: var(--color-mrwhite); background-color: rgba(59, 130, 246, 0.2); }
+
+        .btn-primary {
+            transition: all 0.15s ease;
+            transform: scale(1);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+        .btn-primary:hover {
+            transform: scale(1.02);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+        }
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        /* Responsive grid for the voting/elimination view */
+        #game-players-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 1rem;
+        }
+        
+        .player-tile {
+            background-color: #374151; /* Match role-card-bg */
+            transition: all 0.3s ease-in-out;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: relative; 
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .player-tile.eliminated {
+            background-color: #27303d;
+            opacity: 0.5;
+            cursor: default;
+            pointer-events: none;
+        }
+        
+        /* Custom scrollbar style for better aesthetics in dark mode */
+        .scrollable-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .scrollable-content::-webkit-scrollbar-track {
+            background: #374151;
+            border-radius: 10px;
+        }
+        .scrollable-content::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 10px;
+        }
+        .scrollable-content::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+
+    </style>
+</head>
+<body class="p-4 sm:p-8 flex items-center justify-center">
+
+    <!-- HOW TO PLAY MODAL (Overlay) -->
+    <div id="rules-modal" class="fixed inset-0 bg-black bg-opacity-90 hidden items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 p-6 sm:p-8 rounded-xl shadow-2xl max-w-lg w-full h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-700">
+                <h2 class="text-3xl font-extrabold text-white">How to Play Word of Doubt</h2>
+                <button id="close-rules-modal-btn" class="text-gray-400 hover:text-white transition">
+                    <i data-lucide="x" class="w-8 h-8"></i>
+                </button>
+            </div>
+            
+            <div class="scrollable-content overflow-y-auto pr-4 text-gray-300 space-y-6">
+
+                <!-- Game Objective -->
+                <div>
+                    <h3 class="text-xl font-bold text-yellow-400 mb-2">The Goal</h3>
+                    <p>The goal depends on your secret role. The majority of players (**Civilians**) must use clever clues and deduction to identify and eliminate the impostors (the **Undercover** and **Mr. White**).</p>
+                </div>
+
+                <!-- Roles Section -->
+                <div>
+                    <h3 class="text-xl font-bold text-yellow-400 mb-2">The Roles</h3>
+                    <ul class="space-y-3">
+                        <li class="p-3 rounded-lg role-civilian border-2 border-emerald-500">
+                            <span class="font-bold text-lg text-emerald-400">Civilian:</span> You all share the **same word**. Your goal is to find the players with the different or no word.
+                        </li>
+                        <li class="p-3 rounded-lg role-undercover border-2 border-amber-500">
+                            <span class="font-bold text-lg text-amber-400">Undercover:</span> You have a word that is **similar but different** to the Civilians'. Your goal is to survive until the end by convincing the group you are a Civilian.
+                        </li>
+                        <li class="p-3 rounded-lg role-mrwhite border-2 border-blue-500">
+                            <span class="font-bold text-lg text-blue-400">Mr. White:</span> You have **no word (^^)**. You must improvise your clue based on what others say, figure out the Civilian word, and survive.
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Gameplay Section -->
+                <div>
+                    <h3 class="text-xl font-bold text-yellow-400 mb-2">Gameplay Flow (Pass-and-Play)</h3>
+                    <ol class="list-decimal list-inside space-y-3 pl-2">
+                        <li>
+                            <span class="font-semibold text-white">Setup:</span> Add all player names to the list.
+                        </li>
+                        <li>
+                            <span class="font-semibold text-white">Role Assignment:</span> Pass the device around. Each player privately clicks "Show My Secret Role" to see their word and role, then clicks "I'm Ready, Pass to Next Player."
+                        </li>
+                        <li>
+                            <span class="font-semibold text-white">Clue Round:</span> Going in a circle, each player gives one **short, truthful word or phrase** that describes their secret word. Civilians must be careful not to be too obvious; Impostors must try to sound like Civilians.
+                        </li>
+                        <li>
+                            <span class="font-semibold text-white">Discussion & Vote:</span> After the clue round is complete, tap the **Eliminate** button on the player you suspect the most.
+                        </li>
+                        <li>
+                            <span class="font-semibold text-white">Reveal & Mr. White's Chance:</span> The eliminated player's role is immediately revealed. If **Mr. White** is eliminated, they get one chance to guess the Civilian word to win the game instantly!
+                        </li>
+                    </ol>
+                </div>
+
+                <!-- Winning Conditions -->
+                <div>
+                    <h3 class="text-xl font-bold text-yellow-400 mb-2">Winning the Game</h3>
+                    <ul class="list-disc list-inside space-y-2 pl-2">
+                        <li>
+                            <span class="font-semibold text-green-400">Civilians Win:</span> If they successfully eliminate both the Undercover and Mr. White.
+                        </li>
+                        <li>
+                            <span class="font-semibold text-orange-400">Impostors Win:</span> If the number of remaining Impostors ($\ge 1$) is greater than or equal to the number of remaining Civilians.
+                        </li>
+                        <li>
+                            <span class="font-semibold text-blue-400">Mr. White Wins:</span> If, upon elimination, they correctly guess the Civilian word.
+                        </li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    <!-- END HOW TO PLAY MODAL -->
+
+    <div id="app-container" class="w-full max-w-2xl bg-gray-800 p-6 sm:p-8 rounded-xl shadow-2xl">
+
+        <!-- Header -->
+        <header class="text-center mb-6">
+            <h1 class="text-4xl font-extrabold text-white tracking-tight flex items-center justify-center">
+                <i data-lucide="shield-half" class="w-8 h-8 mr-2 text-yellow-400"></i>
+                Word of Doubt
+            </h1>
+            <p class="text-sm text-gray-400 mt-1">The Secret Word Party Game</p>
+            <button id="open-rules-modal-btn" class="mt-3 text-sm text-blue-300 hover:text-blue-200 font-semibold flex items-center mx-auto transition">
+                <i data-lucide="book-open-text" class="w-4 h-4 mr-1"></i>
+                How to Play
+            </button>
+        </header>
+
+        <!-- Main Content Area -->
+        <div id="content">
+
+            <!-- 1. Setup Screen -->
+            <div id="setup-screen" class="space-y-6">
+                <h2 class="text-2xl font-semibold text-gray-200">1. Setup Game</h2>
+                <div class="bg-gray-700 p-4 rounded-lg">
+                    <label for="player-name-input" class="block text-sm font-medium text-gray-300 mb-2">Add Player Names (Min 3)</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="player-name-input" placeholder="Enter name..." class="flex-grow p-3 rounded-l-lg bg-gray-600 text-white border-none focus:ring-2 focus:ring-blue-500">
+                        <button id="add-player-btn" class="px-4 py-3 bg-blue-600 text-white font-bold rounded-r-lg hover:bg-blue-500 btn-primary">Add</button>
+                    </div>
+                </div>
+
+                <div id="player-list-container" class="min-h-[100px] p-4 bg-gray-700 rounded-lg shadow-inner">
+                    <p id="player-list-empty" class="text-center text-gray-500 italic mt-4">No players added yet.</p>
+                    <ul id="player-list" class="space-y-2">
+                        <!-- Player names will be injected here -->
+                    </ul>
+                </div>
+
+                <button id="start-assignment-btn" class="w-full py-4 bg-emerald-500 text-gray-900 font-extrabold rounded-lg shadow-lg hover:bg-emerald-400 btn-primary disabled:opacity-50" disabled>
+                    Start Role Assignment (Need 3+ Players)
+                </button>
+            </div>
+
+            <!-- 2. Role Assignment Screen (Pass-and-Play) -->
+            <div id="role-assignment-screen" class="hidden text-center space-y-6">
+                <h2 class="text-3xl font-bold text-gray-200" id="current-player-prompt"></h2>
+                <p class="text-gray-400">Please pass the device to this player.</p>
+
+                <!-- Role Reveal Card (Initially Hidden) -->
+                <div id="role-reveal-card" class="hidden relative p-8 rounded-xl min-h-[250px] flex flex-col justify-center items-center text-center mx-auto max-w-sm role-card">
+                    <div class="absolute inset-0 bg-black opacity-30 rounded-xl"></div>
+                    <div class="relative z-10 space-y-4">
+                        <p id="card-role-label" class="text-sm font-semibold uppercase tracking-widest"></p>
+                        <h3 id="card-role" class="text-5xl font-black mb-4"></h3>
+                        <p class="text-gray-200 text-lg">Your Secret Word:</p>
+                        <p id="card-word" class="text-4xl font-bold italic"></p>
+                    </div>
+                </div>
+
+                <button id="reveal-role-btn" class="w-full py-4 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-500 btn-primary">
+                    Show My Secret Role
+                </button>
+
+                <button id="ready-next-btn" class="hidden w-full py-4 bg-yellow-500 text-gray-900 font-extrabold rounded-lg shadow-lg hover:bg-yellow-400 btn-primary">
+                    I'm Ready, Pass to Next Player
+                </button>
+            </div>
+
+            <!-- 2.5. Clue Phase Completion Screen -->
+            <div id="clue-phase-screen" class="hidden text-center space-y-8">
+                <h2 class="text-3xl font-extrabold text-emerald-400">Clue Round Complete!</h2>
+                <p class="text-xl text-gray-300">You have all given your descriptions. **Stop touching the device.** Discuss your suspicions and decide who you want to eliminate.</p>
+                <button id="go-to-vote-btn" class="w-full py-5 bg-red-600 text-white font-extrabold rounded-lg shadow-xl hover:bg-red-500 btn-primary">
+                    Go to Elimination Vote
+                </button>
+            </div>
+
+            <!-- 3. In-Game Screen -->
+            <div id="game-screen" class="hidden space-y-6">
+                <h2 class="text-3xl font-bold text-gray-200 text-center">2. Elimination Vote</h2>
+                <div class="bg-gray-700 p-4 rounded-xl shadow-inner text-center space-y-2">
+                    <p class="text-sm font-medium text-gray-400">Civilians Word: <span class="text-green-400 font-bold" id="civilian-word-display">???</span></p>
+                    <p class="text-sm font-medium text-gray-400">Undercover Word: <span class="text-orange-400 font-bold" id="undercover-word-display">???</span></p>
+                    <p class="text-lg font-extrabold text-white">Remaining Players: <span id="remaining-count"></span></p>
+                </div>
+
+                <p class="text-lg text-gray-300 text-center font-semibold">Tap **Eliminate** to vote out a player:</p>
+                <div id="game-players-grid">
+                    <!-- Player tiles with eliminate buttons will be injected here -->
+                </div>
+
+                <button id="end-game-btn" class="w-full py-3 mt-6 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-500 btn-primary">
+                    End Game / Force Reveal
+                </button>
+            </div>
+            
+            <!-- ELIMINATION/REVEAL MODAL - Used for all vote confirmation and reveals -->
+            <div id="elimination-modal" class="fixed inset-0 bg-black bg-opacity-75 hidden items-center justify-center z-50 p-4">
+                <div id="modal-content-wrapper" class="bg-gray-800 p-6 rounded-xl shadow-2xl max-w-sm w-full text-center space-y-4">
+                    <h3 class="text-2xl font-bold text-white" id="modal-title"></h3>
+                    <p class="text-lg text-gray-300" id="modal-message"></p>
+                    
+                    <!-- Persistent Input for Mr. White's Guess (Hidden by default) -->
+                    <input type="text" id="mr-white-guess-input" placeholder="Enter Civilian Word (e.g., DOG)" class="hidden p-3 w-full rounded-lg bg-gray-600 text-white border-none focus:ring-2 focus:ring-blue-500 uppercase">
+
+                    <div class="flex justify-around pt-4">
+                        <button id="cancel-vote-btn" class="hidden px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-400 btn-primary">Cancel</button>
+                        <button id="confirm-vote-btn" class="px-6 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-500 btn-primary"></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Results Screen -->
+            <div id="results-screen" class="hidden text-center space-y-6">
+                <h2 class="text-4xl font-extrabold" id="winner-title"></h2>
+                <p class="text-xl text-gray-300" id="winner-message"></p>
+
+                <div id="final-roles-container" class="bg-gray-700 p-6 rounded-xl shadow-inner space-y-3">
+                    <h3 class="text-2xl font-semibold text-white mb-4">Final Roles & Words</h3>
+                    <!-- Final roles will be injected here -->
+                </div>
+
+                <button id="restart-game-btn" class="w-full py-4 bg-blue-500 text-white font-extrabold rounded-lg shadow-lg hover:bg-blue-400 btn-primary">
+                    Play Again
+                </button>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        // Global State
+        let gameState = 'setup';
+        let players = [];
+        let currentPassIndex = 0;
+        let wordPair = { civilian: '', undercover: '' };
+
+        // Hardcoded Word Pairs (Civilians / Undercover)
+        const wordList = [
+            { c: 'DOG', u: 'PUPPY' },
+            { c: 'OCEAN', u: 'LAKE' },
+            { c: 'SOCCER', u: 'RUGBY' },
+            { c: 'RAINBOW', u: 'SPECTRUM' },
+            { c: 'CHOCOLATE', u: 'VANILLA' },
+            { c: 'MOUNTAIN', u: 'HILL' },
+            { c: 'FIRE', u: 'HEAT' },
+            { c: 'APPLE', u: 'ORANGE' },
+            { c: 'PIANO', u: 'GUITAR' },
+            { c: 'COFFEE', u: 'TEA' },
+        ];
+
+        // --- DOM ELEMENTS (Cached for repeated use) ---
+        const eliminationModal = document.getElementById('elimination-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+        const confirmVoteBtn = document.getElementById('confirm-vote-btn');
+        const cancelVoteBtn = document.getElementById('cancel-vote-btn');
+        const mrWhiteGuessInput = document.getElementById('mr-white-guess-input');
+        const gamePlayersGrid = document.getElementById('game-players-grid');
+        const remainingCount = document.getElementById('remaining-count');
+        const civilianWordDisplay = document.getElementById('civilian-word-display');
+        const undercoverWordDisplay = document.getElementById('undercover-word-display');
+        const goTovoteBtn = document.getElementById('go-to-vote-btn');
+
+
+        // Utility Function to update the screen display
+        function updateScreen() {
+            const screens = ['setup-screen', 'role-assignment-screen', 'clue-phase-screen', 'game-screen', 'results-screen'];
+            
+            screens.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.classList.add('hidden');
+                    element.classList.remove('flex', 'flex-col', 'items-center', 'justify-center');
+                }
+            });
+            
+            const currentScreen = document.getElementById(`${gameState}-screen`);
+            if (currentScreen) {
+                currentScreen.classList.remove('hidden');
+                // Apply centering/flex layout only to game screens where needed
+                if (gameState === 'role-assignment' || gameState === 'clue-phase' || gameState === 'results') {
+                     currentScreen.classList.add('flex', 'flex-col', 'items-center', 'justify-center');
+                }
+            }
+            
+            lucide.createIcons();
+        }
+
+        // --- HOW TO PLAY MODAL LOGIC ---
+        const rulesModal = document.getElementById('rules-modal');
+        document.getElementById('open-rules-modal-btn').addEventListener('click', () => {
+            rulesModal.classList.remove('hidden');
+            rulesModal.classList.add('flex');
+            lucide.createIcons();
+        });
+
+        document.getElementById('close-rules-modal-btn').addEventListener('click', () => {
+            rulesModal.classList.add('hidden');
+            rulesModal.classList.remove('flex');
+        });
+
+        // --- SETUP SCREEN LOGIC ---
+        const playerNameInput = document.getElementById('player-name-input');
+        const addPlayerBtn = document.getElementById('add-player-btn');
+        const playerList = document.getElementById('player-list');
+        const playerListEmpty = document.getElementById('player-list-empty');
+        const startAssignmentBtn = document.getElementById('start-assignment-btn');
+
+        function renderPlayerList() {
+            playerList.innerHTML = '';
+            if (players.length === 0) {
+                playerListEmpty.classList.remove('hidden');
+            } else {
+                playerListEmpty.classList.add('hidden');
+                players.forEach((player, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'flex justify-between items-center p-2 bg-gray-600 rounded-md';
+                    li.innerHTML = `
+                        <span class="text-gray-200 font-semibold">${index + 1}. ${player.name}</span>
+                        <button data-id="${player.id}" class="remove-player-btn text-red-400 hover:text-red-300 p-1 rounded-full">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    `;
+                    playerList.appendChild(li);
+                });
+                lucide.createIcons();
+            }
+
+            startAssignmentBtn.disabled = players.length < 3;
+            startAssignmentBtn.textContent = players.length < 3 
+                ? `Start Role Assignment (Need ${3 - players.length} more)`
+                : 'Start Role Assignment';
+        }
+
+        function addPlayer() {
+            const name = playerNameInput.value.trim();
+            if (name && players.length < 15) { 
+                players.push({
+                    id: Date.now() + Math.random(),
+                    name: name,
+                    role: null,
+                    word: null,
+                    isAlive: true
+                });
+                playerNameInput.value = '';
+                renderPlayerList();
+            }
+        }
+
+        playerList.addEventListener('click', (e) => {
+            if (e.target.closest('.remove-player-btn')) {
+                const playerId = parseFloat(e.target.closest('.remove-player-btn').dataset.id);
+                players = players.filter(p => p.id !== playerId);
+                renderPlayerList();
+            }
+        });
+
+        addPlayerBtn.addEventListener('click', addPlayer);
+        playerNameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addPlayer();
+            }
+        });
+
+        startAssignmentBtn.addEventListener('click', () => {
+            if (players.length >= 3) {
+                initializeGameRoles();
+                gameState = 'role-assignment';
+                currentPassIndex = 0;
+                updateRoleAssignmentScreen();
+                updateScreen();
+            }
+        });
+
+
+        // --- GAME INITIALIZATION (Random Assignment) ---
+        function initializeGameRoles() {
+            const pair = wordList[Math.floor(Math.random() * wordList.length)];
+            wordPair.civilian = pair.c;
+            wordPair.undercover = pair.u;
+
+            let rolesToAssign = ['Undercover', 'Mr. White'];
+            const numCivilians = players.length - 2;
+            for (let i = 0; i < numCivilians; i++) {
+                rolesToAssign.push('Civilian');
+            }
+
+            for (let i = rolesToAssign.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [rolesToAssign[i], rolesToAssign[j]] = [rolesToAssign[j], rolesToAssign[i]];
+            }
+
+            players.forEach((player, index) => {
+                player.role = rolesToAssign[index];
+                player.isAlive = true;
+                
+                if (player.role === 'Civilian') {
+                    player.word = wordPair.civilian;
+                } else if (player.role === 'Undercover') {
+                    player.word = wordPair.undercover;
+                } else if (player.role === 'Mr. White') {
+                    player.word = '^^';
+                }
+            });
+        }
+
+        // --- ROLE ASSIGNMENT SCREEN LOGIC (Pass-and-Play) ---
+        const currentPlayerPrompt = document.getElementById('current-player-prompt');
+        const roleRevealCard = document.getElementById('role-reveal-card');
+        const cardRoleLabel = document.getElementById('card-role-label');
+        const cardRole = document.getElementById('card-role');
+        const cardWord = document.getElementById('card-word');
+        const revealRoleBtn = document.getElementById('reveal-role-btn');
+        const readyNextBtn = document.getElementById('ready-next-btn');
+
+        function updateRoleAssignmentScreen() {
+            if (currentPassIndex < players.length) {
+                const player = players[currentPassIndex];
+                currentPlayerPrompt.textContent = `${player.name}, it's your turn.`;
+                revealRoleBtn.classList.remove('hidden');
+                readyNextBtn.classList.add('hidden');
+                
+                roleRevealCard.classList.add('hidden');
+                roleRevealCard.className = `role-card relative p-8 rounded-xl min-h-[250px] flex flex-col justify-center items-center text-center mx-auto max-w-sm`;
+            } else {
+                gameState = 'clue-phase';
+                updateScreen();
+            }
+        }
+
+        revealRoleBtn.addEventListener('click', () => {
+            const player = players[currentPassIndex];
+
+            roleRevealCard.className = `role-card relative p-8 rounded-xl min-h-[250px] flex flex-col justify-center items-center text-center mx-auto max-w-sm`;
+            roleRevealCard.classList.add(`role-${player.role.toLowerCase().replace(' ', '')}`);
+            
+            cardRole.textContent = player.role;
+            cardWord.textContent = player.word;
+
+            if (player.role === 'Civilian') {
+                cardRoleLabel.textContent = 'Keep your word safe!';
+                cardRole.classList.add('text-emerald-400');
+            } else if (player.role === 'Undercover') {
+                cardRoleLabel.textContent = 'Don\'t let them catch you!';
+                cardRole.classList.add('text-amber-400');
+            } else if (player.role === 'Mr. White') {
+                cardRoleLabel.textContent = 'Improvise! You don\'t know the word.';
+                cardRole.classList.add('text-blue-400');
+                cardWord.textContent = 'IMPROVISE!';
+            }
+
+            revealRoleBtn.classList.add('hidden');
+            roleRevealCard.classList.remove('hidden');
+            setTimeout(() => {
+                readyNextBtn.classList.remove('hidden');
+            }, 1000); 
+        });
+
+        readyNextBtn.addEventListener('click', () => {
+            roleRevealCard.classList.add('hidden'); 
+            cardRole.textContent = '';
+            cardWord.textContent = '';
+
+            readyNextBtn.classList.add('hidden'); 
+            revealRoleBtn.classList.remove('hidden'); 
+
+            currentPassIndex++;
+            updateRoleAssignmentScreen();
+        });
+        
+        // --- CLUE PHASE SCREEN LOGIC ---
+        goTovoteBtn.addEventListener('click', () => {
+            gameState = 'game'; // Transition to in-game screen
+            updateGameScreen();
+            updateScreen();
+        });
+
+
+        // --- IN-GAME SCREEN LOGIC (New direct elimination flow) ---
+        function updateGameScreen() {
+            const alivePlayers = players.filter(p => p.isAlive);
+            remainingCount.textContent = alivePlayers.length;
+            
+            renderPlayerTiles(alivePlayers);
+        }
+        
+        function renderPlayerTiles(alivePlayers) {
+            gamePlayersGrid.innerHTML = '';
+
+            alivePlayers.forEach(player => {
+                const tile = document.createElement('div');
+                tile.dataset.id = player.id;
+                tile.className = 'player-tile bg-gray-700 rounded-xl p-4 text-center shadow-lg border-b-4 border-gray-600';
+                
+                tile.innerHTML = `
+                    <p class="text-xl font-extrabold text-white mb-2">${player.name}</p>
+                    <button data-id="${player.id}" class="eliminate-player-btn w-full py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-500 btn-primary">
+                        Eliminate
+                    </button>
+                `;
+                gamePlayersGrid.appendChild(tile);
+            });
+            
+            document.querySelectorAll('.eliminate-player-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const playerId = parseFloat(e.currentTarget.dataset.id);
+                    const eliminatedPlayer = players.find(p => p.id === playerId);
+                    if (eliminatedPlayer) {
+                        eliminatePlayer(eliminatedPlayer);
+                    }
+                });
+            });
+        }
+        
+        // Function to handle the actual elimination process
+        function eliminatePlayer(player) {
+            player.isAlive = false;
+            
+            if (player.role === 'Mr. White') {
+                showMrWhiteGuessModal(player);
+            } else {
+                showRoleRevealModal(player);
+            }
+        }
+        
+        // --- MODAL FUNCTIONS ---
+
+        // Universal function to reset modal handlers and state
+        function resetModalState() {
+            confirmVoteBtn.onclick = null;
+            cancelVoteBtn.onclick = null;
+            mrWhiteGuessInput.classList.add('hidden');
+            cancelVoteBtn.classList.add('hidden');
+            eliminationModal.classList.add('hidden');
+            modalTitle.classList.remove('text-emerald-400', 'text-amber-400', 'text-blue-400');
+            modalTitle.classList.add('text-white');
+            confirmVoteBtn.textContent = '';
+        }
+
+        // 1. Standard Reveal (Civilian or Undercover)
+        function showRoleRevealModal(player) {
+            resetModalState();
+            eliminationModal.classList.remove('hidden');
+            eliminationModal.classList.add('flex');
+
+            const role = player.role;
+            let colorClass, message;
+
+            if (role === 'Civilian') {
+                colorClass = 'text-emerald-400';
+                message = `${player.name} was a **CIVILIAN**! The impostors remain...`;
+            } else { // Undercover
+                colorClass = 'text-amber-400';
+                message = `${player.name} was the **UNDERCOVER**! One impostor down.`;
+            }
+
+            modalTitle.textContent = 'ROLE REVEAL';
+            modalTitle.classList.add(colorClass);
+            modalMessage.innerHTML = message;
+            confirmVoteBtn.textContent = 'Continue Game';
+            
+            confirmVoteBtn.onclick = () => {
+                resetModalState();
+                checkWinCondition(false);
+            };
+        }
+
+        // 2. Mr. White Elimination (Guess phase)
+        function showMrWhiteGuessModal(player) {
+            resetModalState();
+            eliminationModal.classList.remove('hidden');
+            eliminationModal.classList.add('flex');
+            
+            modalTitle.textContent = `${player.name} was MR. WHITE!`;
+            modalTitle.classList.add('text-blue-400');
+            modalMessage.innerHTML = 'You have one chance to guess the **Civilian Word** to win the game!';
+            mrWhiteGuessInput.classList.remove('hidden');
+            confirmVoteBtn.textContent = 'Submit Guess';
+
+            confirmVoteBtn.onclick = () => {
+                const guess = mrWhiteGuessInput.value.trim().toUpperCase();
+                resetModalState();
+                
+                if (guess === wordPair.civilian.toUpperCase()) {
+                    // Mr. White wins!
+                    gameState = 'results';
+                    showResults('Mr. White');
+                } else {
+                    // Incorrect guess, game continues (or ends naturally)
+                    checkWinCondition(false);
+                }
+                updateScreen();
+            };
+        }
+
+
+        // --- WIN CONDITION CHECK ---
+        function checkWinCondition(isForcedEnd) {
+            const alive = players.filter(p => p.isAlive);
+            const aliveRoles = alive.map(p => p.role);
+            
+            const civiliansLeft = aliveRoles.filter(r => r === 'Civilian').length;
+            const impostorsLeft = aliveRoles.filter(r => r === 'Undercover' || r === 'Mr. White').length;
+            
+            let winner = null;
+
+            if (impostorsLeft === 0) {
+                // Civilians win if all impostors are out
+                winner = 'Civilians';
+            } else if (impostorsLeft >= civiliansLeft) {
+                 // Impostors win if they equal or outnumber civilians
+                winner = 'Impostors';
+            } else if (isForcedEnd) {
+                // Forced end check if no natural win occurred
+                winner = impostorsLeft > 0 ? 'Impostors' : 'Civilians';
+            }
+
+
+            if (winner) {
+                gameState = 'results';
+                showResults(winner);
+                updateScreen();
+            } else {
+                updateGameScreen(); // Continue game
+            }
+        }
+
+        document.getElementById('end-game-btn').addEventListener('click', () => {
+            checkWinCondition(true);
+        });
+        
+        // --- RESULTS SCREEN LOGIC ---
+        const winnerTitle = document.getElementById('winner-title');
+        const winnerMessage = document.getElementById('winner-message');
+        const finalRolesContainer = document.getElementById('final-roles-container');
+
+
+        function showResults(winner) {
+            winnerTitle.textContent = `${winner} Win!`;
+            winnerTitle.classList.remove('text-green-400', 'text-orange-400', 'text-blue-400');
+            
+            if (winner === 'Civilians') {
+                winnerTitle.classList.add('text-emerald-400');
+                winnerMessage.textContent = 'The honest folk managed to eliminate the deception!';
+            } else if (winner === 'Impostors') {
+                winnerTitle.classList.add('text-amber-400');
+                winnerMessage.textContent = 'The Undercover and Mr. White successfully outlasted the Civilians!';
+            } else if (winner === 'Mr. White') {
+                winnerTitle.classList.add('text-blue-400');
+                winnerMessage.textContent = `Mr. White correctly guessed the Civilian word: "${wordPair.civilian}" and won!`;
+            }
+
+            // Display Final Roles
+            finalRolesContainer.innerHTML = '<h3 class="text-2xl font-semibold text-white mb-4">Final Roles & Words</h3>';
+            players.forEach(p => {
+                const pEl = document.createElement('p');
+                const roleClass = p.role.toLowerCase().replace(' ', '');
+                pEl.className = `text-lg font-medium p-2 rounded-md bg-gray-700`;
+                pEl.innerHTML = `<span class="font-bold">${p.name}</span>: 
+                                 <span class="font-extrabold text-${roleClass === 'civilian' ? 'emerald-400' : roleClass === 'undercover' ? 'amber-400' : 'blue-400'}">${p.role}</span>
+                                 (${p.word})`;
+                finalRolesContainer.appendChild(pEl);
+            });
+
+            civilianWordDisplay.textContent = wordPair.civilian;
+            undercoverWordDisplay.textContent = wordPair.undercover;
+        }
+
+        document.getElementById('restart-game-btn').addEventListener('click', () => {
+            players = [];
+            currentPassIndex = 0;
+            wordPair = { civilian: '', undercover: '' };
+            gameState = 'setup';
+            playerNameInput.value = '';
+            renderPlayerList();
+            updateScreen();
+        });
+
+        // --- INITIALIZATION ---
+        window.onload = () => {
+            renderPlayerList();
+            updateScreen();
+        }
+    </script>
+
+</body>
+</html>
